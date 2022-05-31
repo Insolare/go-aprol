@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/Insolare/goaprol/tbase"
+	"github.com/insolare/goaprol/tbase"
 )
 
 func main() {

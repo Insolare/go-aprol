@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Insolare/goaprol/iosys"
+	"github.com/insolare/goaprol/iosys"
 )
 
 type MyTimeVar struct {
