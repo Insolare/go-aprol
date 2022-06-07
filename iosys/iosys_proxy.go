@@ -2,18 +2,40 @@ package iosys
 
 /*
 #include <PccIosys.h>
-
-extern void iosysChangedProxy(void*, void*);
-extern void iosysChangeRequestProxy(void*, void*);
-extern void iosysIdlerProxy(void*, void*);
 */
+
 import "C"
 
 import (
+	"runtime/cgo"
 	"unsafe"
 
 	goptr "github.com/mattn/go-pointer"
 )
+
+/*
+* Iosys connection events proxies
+ */
+
+//export iosysConnectedProxy
+func iosysConnectedProxy(closure unsafe.Pointer) {
+	handle := *(*cgo.Handle)(closure)
+	reciever := handle.Value().(IosysConnectionEventReciever)
+
+	reciever.OnConnected()
+}
+
+//export iosysDisconnectedProxy
+func iosysDisconnectedProxy(closure unsafe.Pointer) {
+	handle := *(*cgo.Handle)(closure)
+	reciever := handle.Value().(IosysConnectionEventReciever)
+
+	reciever.OnDisconnected()
+}
+
+/*
+* IosVar event proxies
+ */
 
 //export iosysChangedProxy
 func iosysChangedProxy(v unsafe.Pointer, user_data unsafe.Pointer) {

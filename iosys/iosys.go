@@ -10,26 +10,30 @@ package iosys
 typedef void (*changed_fct)(IosVar *s, void *closure);
 typedef void (*changerequest_fct)(IosVar *s, void *closure);
 typedef void (*idler_fct)(IosVar *s, void *closure);
+typedef void (*ios_conn_fct)(void* conn, int sock, void* closure);
+typedef void (*ios_fail_fct)(void* conn, void* closure);
 
+extern void iosys_connectedCgo(void* conn, int sock, void* closure);
+extern void iosys_disconnectedCgo(void* conn, void* closure);
 extern void goaprol_ios_mainloop();
 */
 import "C"
 
 import (
 	"context"
+	"runtime/cgo"
 	"sync"
 	"unsafe"
 )
 
-type EventReciever interface {
+type IosysConnectionEventReciever interface {
 	OnConnected()
 	OnDisconnected()
 }
 
 type IosysConnection struct {
-	conn      *C.IosConn
-	callbacks EventReciever
-	vars      []unsafe.Pointer
+	conn   *C.IosConn
+	handle cgo.Handle
 }
 
 func Initialize() {
@@ -40,14 +44,19 @@ func Finalize() {
 	C.Ios_fin()
 }
 
-func NewIosysConnection(host string) IosysConnection {
+func NewIosysConnection(host string, object IosysConnectionEventReciever) IosysConnection {
 	cHost := C.CString(host)
 	defer C.free(unsafe.Pointer(cHost))
 
+	handle := cgo.NewHandle(object)
+
+	conn := C.IosConn_new(cHost)
+	C.IosConn_set_conn(conn, (C.ios_conn_fct)(C.iosys_connectedCgo), unsafe.Pointer(&handle))
+	C.IosConn_set_fail(conn, (C.ios_fail_fct)(C.iosys_disconnectedCgo), unsafe.Pointer(&handle))
+
 	return IosysConnection{
-		C.IosConn_new(cHost),
-		nil,
-		make([]unsafe.Pointer, 0),
+		conn:   conn,
+		handle: handle,
 	}
 }
 
@@ -64,6 +73,8 @@ func (cn *IosysConnection) IsConnected() bool {
 
 func (cn *IosysConnection) Delete() {
 	C.IosConn_delete(cn.conn)
+	cn.conn = nil
+	cn.handle.Delete()
 }
 
 // StartMainLoop launches Iosys-mainloop via underlying library.
