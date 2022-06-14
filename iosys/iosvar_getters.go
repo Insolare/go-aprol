@@ -10,6 +10,15 @@ import (
 	"time"
 )
 
+// GetBool returns true if value of Iosys-variable is not equal to 0
+func (v *IosVar) GetBool() (bool, error) {
+	if v.ptr == nil {
+		return false, fmt.Errorf("ptr is nil")
+	}
+
+	return C.IosVar_get_int(v.ptr) != 0, nil
+}
+
 func (v *IosVar) GetInt() (int64, error) {
 	if v.ptr == nil {
 		return 0, fmt.Errorf("ptr is nil")
