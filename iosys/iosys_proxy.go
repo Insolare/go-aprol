@@ -9,8 +9,6 @@ import "C"
 import (
 	"runtime/cgo"
 	"unsafe"
-
-	goptr "github.com/mattn/go-pointer"
 )
 
 /*
@@ -39,21 +37,24 @@ func iosysDisconnectedProxy(closure unsafe.Pointer) {
 
 //export iosysChangedProxy
 func iosysChangedProxy(v unsafe.Pointer, user_data unsafe.Pointer) {
-	cb := goptr.Restore(user_data).(IosVarEvtReciever)
+	handle := *(*cgo.Handle)(user_data)
+	reciever := handle.Value().(IosVarEvtReciever)
 
-	cb.OnChange()
+	reciever.OnChange()
 }
 
 //export iosysChangeRequestProxy
 func iosysChangeRequestProxy(v unsafe.Pointer, user_data unsafe.Pointer) {
-	cb := goptr.Restore(user_data).(IosVarEvtReciever)
+	handle := *(*cgo.Handle)(user_data)
+	reciever := handle.Value().(IosVarEvtReciever)
 
-	cb.OnChangeRequest()
+	reciever.OnChangeRequest()
 }
 
 //export iosysIdlerProxy
 func iosysIdlerProxy(v unsafe.Pointer, user_data unsafe.Pointer) {
-	cb := goptr.Restore(user_data).(IosVarEvtReciever)
+	handle := *(*cgo.Handle)(user_data)
+	reciever := handle.Value().(IosVarEvtReciever)
 
-	cb.OnIdleChange()
+	reciever.OnIdleChange()
 }

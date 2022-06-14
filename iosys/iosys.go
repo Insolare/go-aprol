@@ -82,6 +82,8 @@ func StartMainloop(wg *sync.WaitGroup) context.CancelFunc {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	go func() {
+		//runtime.LockOSThread()
+		//defer runtime.UnlockOSThread()
 		for {
 			select {
 			case <-ctx.Done():

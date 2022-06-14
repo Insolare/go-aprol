@@ -15,15 +15,24 @@ import "C"
 
 import (
 	"fmt"
+	"runtime/cgo"
 	"unsafe"
-
-	goptr "github.com/mattn/go-pointer"
 )
 
 // Must be embedded to user type
 type IosVar struct {
-	ptr   *C.IosVar
-	owned bool
+	ptr    *C.IosVar
+	owned  bool
+	parent *cgo.Handle
+}
+
+type IosVarListener interface {
+	OnChange()
+}
+
+type IosVarProvider interface {
+	OnChangeRequest()
+	OnIdleChange()
 }
 
 type IosVarEvtReciever interface {
@@ -34,16 +43,19 @@ type IosVarEvtReciever interface {
 
 func NewIosVar(name string, i IosVarEvtReciever) IosVar {
 	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
 
-	p := goptr.Save(i)
+	// Clean it while deleting
+	handle := cgo.NewHandle(i)
 
-	pVar := C.IosVar_new(cName, &C.IosCallbacks, p)
-	C.Ios_sync()
-
-	C.free(unsafe.Pointer(cName))
+	pVar := C.IosVar_new(cName, &C.IosCallbacks, unsafe.Pointer(&handle))
+	C.Ios_sync() // Maybe make it separate?..
+	fmt.Println("IosVar created")
 
 	return IosVar{
-		ptr: pVar,
+		ptr:    pVar,
+		owned:  false,
+		parent: &handle,
 	}
 }
 
@@ -71,20 +83,26 @@ func (v *IosVar) Unsource() error {
 	return nil
 }
 
+// SetValid sets Valid flag to Iosys variable if variable is sourced by our app
 func (v *IosVar) SetValid() {
 	if v.owned {
 		C.IosVar_set_valid(v.ptr)
 	}
 }
 
+// SetInvalid sets Invalid flag to Iosys variable if variable is sourced by our app
 func (v *IosVar) SetInvalid() {
 	if v.owned {
 		C.IosVar_invalidate(v.ptr)
 	}
 }
 
+// Delete frees resources both in Iosys and go/cgo
 func (v *IosVar) Delete() {
 	C.IosVar_delete(v.ptr)
+	cgo.Handle.Delete(*v.parent)
+
+	C.Ios_sync() // Maybe not needed
 
 	v.ptr = nil
 }
