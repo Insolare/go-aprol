@@ -17,9 +17,8 @@ import "C"
 
 import (
 	"fmt"
+	"runtime/cgo"
 	"unsafe"
-
-	goptr "github.com/mattn/go-pointer"
 )
 
 type Tbase struct {
@@ -97,16 +96,21 @@ func (t *Tbase) CloseDatabase() error {
 
 func (t *Tbase) Enumerate(path string) []Vset {
 	cPath := C.CString(path)
+	defer C.free(unsafe.Pointer(cPath))
 
 	en := &enumerator{
 		vsets: make([]Vset, 0),
 	}
-	p := goptr.Save(en)
 
-	C.tb_enumerate(t.base, cPath, nil, 0, C.enumerate_cb(unsafe.Pointer(C.tb_enumerateCgo)), p)
+	handle := cgo.NewHandle(en)
+	defer handle.Delete()
 
-	goptr.Unref(p)
-	C.free(unsafe.Pointer(cPath))
+	C.tb_enumerate(t.base,
+		cPath,
+		nil,
+		0,
+		C.enumerate_cb(unsafe.Pointer(C.tb_enumerateCgo)),
+		unsafe.Pointer(&handle))
 
 	return en.vsets
 }
@@ -117,11 +121,17 @@ func (t *Tbase) GetReferences(path string) []Vset {
 	ref := &referer{
 		refs: make([]Vset, 0),
 	}
-	p := goptr.Save(ref)
 
-	C.tb_refer(t.base, cPath, nil, nil, nil, 0, C.refer_cb(C.tb_referCgo), p)
+	handle := cgo.NewHandle(ref)
+	defer handle.Delete()
 
-	goptr.Unref(p)
+	C.tb_refer(t.base,
+		cPath,
+		nil, nil, nil,
+		0,
+		C.refer_cb(C.tb_referCgo),
+		unsafe.Pointer(&handle))
+
 	C.free(unsafe.Pointer(cPath))
 
 	return ref.refs
