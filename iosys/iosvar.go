@@ -9,7 +9,8 @@ package iosys
 extern void iosys_changedCgo(IosVar *v, void *user_data);
 extern void  iosys_changerequestCgo(IosVar *v, void *user_data, IosVar *request);
 extern void  iosys_idlerCgo(IosVar *v, void *user_data, int idle);
-IosFct IosCallbacks = { iosys_changedCgo, iosys_changerequestCgo, iosys_idlerCgo };
+IosFct IosReaderCallbacks = { iosys_changedCgo, NULL, NULL };
+IosFct IosWriterCallbacks = { NULL, iosys_changerequestCgo, iosys_idlerCgo };
 */
 import "C"
 
@@ -41,22 +42,34 @@ type IosVarEvtReciever interface {
 	OnIdleChange()
 }
 
-func NewIosVar(name string, i IosVarEvtReciever) IosVar {
+// NewIosVar creates new (or gets existing) variable in Iosys/
+//
+// `reciever` must implement either IosVarListener (for read-only variable) or IosVarProvider (for sourced variables)
+func NewIosVar(name string, reciever interface{}) (*IosVar, error) {
+	// Interface validation
+	var callbacks *C.IosFct
+	switch reciever.(type) {
+	case IosVarListener:
+		callbacks = &C.IosReaderCallbacks
+	case IosVarProvider:
+		callbacks = &C.IosWriterCallbacks
+	default:
+		return nil, fmt.Errorf("goaprol: unsupported i argument")
+	}
+
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
 
 	// Clean it while deleting
-	handle := cgo.NewHandle(i)
+	handle := cgo.NewHandle(reciever)
 
-	pVar := C.IosVar_new(cName, &C.IosCallbacks, unsafe.Pointer(&handle))
-	C.Ios_sync() // Maybe make it separate?..
-	fmt.Println("IosVar created")
+	pVar := C.IosVar_new(cName, callbacks, unsafe.Pointer(&handle))
 
-	return IosVar{
+	return &IosVar{
 		ptr:    pVar,
 		owned:  false,
 		parent: &handle,
-	}
+	}, nil
 }
 
 func (v *IosVar) Source() error {
@@ -84,16 +97,13 @@ func (v *IosVar) Unsource() error {
 }
 
 // SetValid sets Valid flag to Iosys variable if variable is sourced by our app
-func (v *IosVar) SetValid() {
+func (v *IosVar) SetValid(valid bool) {
 	if v.owned {
-		C.IosVar_set_valid(v.ptr)
-	}
-}
-
-// SetInvalid sets Invalid flag to Iosys variable if variable is sourced by our app
-func (v *IosVar) SetInvalid() {
-	if v.owned {
-		C.IosVar_invalidate(v.ptr)
+		if valid {
+			C.IosVar_set_valid(v.ptr)
+		} else {
+			C.IosVar_invalidate(v.ptr)
+		}
 	}
 }
 
@@ -102,7 +112,6 @@ func (v *IosVar) Delete() {
 	C.IosVar_delete(v.ptr)
 	cgo.Handle.Delete(*v.parent)
 
-	C.Ios_sync() // Maybe not needed
-
+	v.parent = nil
 	v.ptr = nil
 }

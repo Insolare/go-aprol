@@ -44,6 +44,10 @@ func Finalize() {
 	C.Ios_fin()
 }
 
+func Sync() {
+	C.Ios_sync()
+}
+
 func NewIosysConnection(host string, object IosysConnectionEventReciever) IosysConnection {
 	cHost := C.CString(host)
 	defer C.free(unsafe.Pointer(cHost))
@@ -81,9 +85,8 @@ func (cn *IosysConnection) Delete() {
 func StartMainloop(wg *sync.WaitGroup) context.CancelFunc {
 	ctx, cancel := context.WithCancel(context.Background())
 
+	// Maybe perform Sync() here?..
 	go func() {
-		//runtime.LockOSThread()
-		//defer runtime.UnlockOSThread()
 		for {
 			select {
 			case <-ctx.Done():

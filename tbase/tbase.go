@@ -43,7 +43,6 @@ type referer struct {
 }
 
 func (r *referer) RefererCallback(v Vset, field string) {
-	fmt.Println("Referer callback with field", field)
 	r.refs = append(r.refs, v)
 }
 
@@ -181,11 +180,10 @@ func (t *Tbase) Exist(path string, option int) (bool, error) {
 		return false, nil
 	}
 
-	return false, fmt.Errorf("database error: %d", int(response))
+	return false, fmt.Errorf("tbase error: %d", int(response))
 }
 
 func (t *Tbase) Disconnect() {
-	fmt.Println("Disconnecting tbase")
 	if t.base != nil {
 		C.tb_close(t.base, nil)
 	}
